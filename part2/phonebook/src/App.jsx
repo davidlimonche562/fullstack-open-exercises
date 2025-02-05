@@ -1,9 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '0412-7993526' }
-  ]) 
+  const [persons, setPersons] = useState([]) 
+
+  useEffect(() => {
+    axios.get('http://localhost:3001/persons')
+      .then(response => {
+        setPersons(response.data); // Actualizar estado con datos del servidor
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+      });
+  }, []); 
+
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
