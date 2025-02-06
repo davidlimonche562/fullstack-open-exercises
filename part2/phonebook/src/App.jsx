@@ -1,22 +1,79 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import Phonebook from './services/Phonebook'
 
 const App = () => {
   const [persons, setPersons] = useState([]) 
-
-  useEffect(() => {
-    axios.get('http://localhost:3001/persons')
-      .then(response => {
-        setPersons(response.data); // Actualizar estado con datos del servidor
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error);
-      });
-  }, []); 
-
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    Phonebook.getAll()
+      .then(initialPersons => {
+        setPersons(initialPersons)
+      })
+      .catch(error => {
+        console.error('Error cargando contactos:', error)
+      })
+  }, []) 
+
+  const handleDeleteEntry = (id) => {
+    const person = persons.find(p => p.id === id)
+    if (person && window.confirm(`Delete ${person.name}?`)) {
+      Phonebook.deleteEntry(id)
+        .then(() => {
+          setPersons(persons.filter(p => p.id !== id))
+        })
+        .catch(error => {
+          console.error('Error deleting person:', error)
+          alert('Could not delete the contact.')
+        })
+    }
+  }
+
+  const addPerson = (event) => {
+    event.preventDefault();
+  
+    const existingPerson = persons.find(person => person.name === newName);
+  
+    if (existingPerson) {
+      if (window.confirm(`${newName} ya existe en la agenda. ¿Quieres actualizar su número?`)) {
+        const updatedPerson = { ...existingPerson, number: newNumber };
+  
+        Phonebook.update(existingPerson.id, updatedPerson)
+          .then(updatedData => {
+            setPersons(persons.map(person => 
+              person.id !== existingPerson.id ? person : updatedData
+            ));
+            setNewName('');
+            setNewNumber('');
+          })
+          .catch(error => {
+            console.error('Error actualizando el contacto:', error);
+            alert('No se pudo actualizar el contacto.');
+          });
+      }
+      return;
+    }
+  
+    if (newNumber.trim() === '') {
+      alert('El número no puede estar vacío');
+      return;
+    }
+  
+    const newPerson = { name: newName, number: newNumber };
+  
+    Phonebook.create(newPerson)
+      .then(createdPerson => {
+        setPersons([...persons, createdPerson]);
+        setNewName('');
+        setNewNumber('');
+      })
+      .catch(error => {
+        console.error('Error guardando contacto:', error);
+        alert('No se pudo guardar el contacto');
+      });
+  };
 
 
   const handleNameChange = (event) => setNewName(event.target.value)
@@ -27,24 +84,9 @@ const App = () => {
     person.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const addPerson = (event) => {
-    event.preventDefault()
-    if (persons.some(person => person.name === newName)) {
-      alert(`${newName} ya existe en la agenda`)
-      return
-    }
-    if (newNumber.trim() === '') {
-      alert('El número no puede estar vacío')
-      return
-    }
-    setPersons([...persons, { name: newName, number: newNumber }])
-    setNewName('')
-    setNewNumber('')
-  }
-
   return (
     <div>
-      <h1>Phonebook</h1>
+      <h1>phonebook</h1>
       
       <div>
         Search: <input 
@@ -53,7 +95,8 @@ const App = () => {
           placeholder="Search contacts..."
         />
       </div>
-        <h2>add new</h2>
+
+      <h2>Add new</h2>
       <form onSubmit={addPerson}>
         <div>name: <input value={newName} onChange={handleNameChange}/></div>
         <div>number: <input value={newNumber} onChange={handleNumberChange}/></div>
@@ -63,8 +106,9 @@ const App = () => {
       <h2>Numbers</h2>
       <ul>
         {filteredPersons.map(person => ( 
-          <li key={person.name}>
-            {person.name} - {person.number}
+          <li key={person.id}>
+            {person.name} - {person.number} 
+            <button onClick={() => handleDeleteEntry(person.id)}>Delete</button>
           </li>
         ))}
       </ul>
